@@ -63,8 +63,10 @@ bool blinkLT = false;
 bool hazardLT = false;
 bool hazardsOn = false;
 bool smokeGenOn = false;
-bool trailerAuxMtr1 = false;
-bool trailerAuxMtr2 = false;
+bool trailerAuxMtr1Forward = false;
+bool trailerAuxMtr1Reverse = false;
+bool trailerAuxMtr2Forward = false;
+bool trailerAuxMtr2Reverse = false;
 bool hitchUp = true;
 
 void onConnectedController(ControllerPtr ctl) {
@@ -318,50 +320,46 @@ void processSmokeGen(bool buttonValue) {
 
 void processTrailerAuxMtr1Forward(bool value) {
   if (value) {
-    if (!trailerAuxMtr1) {
       Serial.println(5);
       delay(10);
-      trailerAuxMtr1 = true;
-    }
-  } else if (trailerAuxMtr1) {
+      trailerAuxMtr1Forward = true;
+  } else if (trailerAuxMtr1Forward) {
     Serial.println(7);
     delay(10);
-    trailerAuxMtr1 = false;
+    trailerAuxMtr1Forward = false;
   }
 }
 void processTrailerAuxMtr1Reverse(bool value) {
   if (value) {
-    if (!trailerAuxMtr1) {
       Serial.println(6);
       delay(10);
-      trailerAuxMtr1 = true;
-    }
-  } else if (trailerAuxMtr1) {
+      trailerAuxMtr1Reverse = true;
+  } else if (trailerAuxMtr1Reverse) {
     Serial.println(7);
     delay(10);
-    trailerAuxMtr1 = false;
+    trailerAuxMtr1Reverse = false;
   }
 }
 void processTrailerAuxMtr2Forward(bool value) {
   if (value) {
-    if (!trailerAuxMtr2) {
       Serial.println(8);
       delay(10);
-      trailerAuxMtr2 = true;
-    }
-  } else if (trailerAuxMtr2) {
+      trailerAuxMtr2Forward = true;
+  } else if (trailerAuxMtr2Forward) {
     Serial.println(10);
     delay(10);
-    trailerAuxMtr2 = false;
+    trailerAuxMtr2Forward = false;
   }
 }
 void processTrailerAuxMtr2Reverse(bool value) {
   if (value) {
-    Serial.println(9);
-    delay(10);
-  } else {
+      Serial.println(9);
+      delay(10);
+      trailerAuxMtr2Reverse = true;
+  } else if (trailerAuxMtr2Reverse) {
     Serial.println(10);
     delay(10);
+    trailerAuxMtr2Reverse = false;
   }
 }
 void moveMotor(int motorPin0, int motorPin1, int velocity) {
