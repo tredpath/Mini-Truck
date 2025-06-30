@@ -161,24 +161,25 @@ void processGamepad(ControllerPtr ctl) {
   processTrailerAuxMtr2Forward(ctl->l1());
   processTrailerAuxMtr2Reverse(ctl->l2());
 
+  int testSteeringValue = adjustedSteeringValue + steeringTrim;
   if (blinkLT && (millis() - lightSwitchTime) > 300) {
     if (!lightsOn) {
-      if (adjustedSteeringValue <= 85) {
+      if (testSteeringValue <= 85) {
         digitalWrite(LT1, HIGH);
         Serial.println(12);
-      } else if (adjustedSteeringValue >= 95) {
+      } else if (testSteeringValue >= 95) {
         digitalWrite(LT2, HIGH);
         Serial.println(14);
       }
       lightsOn = true;
     } else {
-      if (adjustedSteeringValue <= 85) {
+      if (testSteeringValue <= 85) {
         digitalWrite(LT2, HIGH);
         digitalWrite(LT1, LOW);
         Serial.println(11);
         delay(10);
         Serial.println(14);
-      } else if (adjustedSteeringValue >= 95) {
+      } else if (testSteeringValue >= 95) {
         digitalWrite(LT1, HIGH);
         digitalWrite(LT2, LOW);
         Serial.println(13);
@@ -189,7 +190,7 @@ void processGamepad(ControllerPtr ctl) {
     }
     lightSwitchTime = millis();
   }
-  if (blinkLT && adjustedSteeringValue > 85 && adjustedSteeringValue < 95) {
+  if (blinkLT && testSteeringValue > 85 && testSteeringValue < 95) {
     digitalWrite(LT1, HIGH);
     digitalWrite(LT2, HIGH);
     Serial.println(12);
