@@ -2,6 +2,8 @@
 #include <ESP32Servo.h>  // by Kevin Harrington
 #include <Bluepad32.h>
 //25,26,32,33,21,19,22,23,2,4,17,16
+#include "nvs_flash.h"
+#include "nvs.h"
 
 ControllerPtr myControllers[BP32_MAX_GAMEPADS];
 
@@ -37,6 +39,7 @@ ControllerPtr myControllers[BP32_MAX_GAMEPADS];
 
 Servo frontSteeringServo;
 Servo hitchServo;
+nvs_handle nvsHandle;
 
 #define frontMotor0 33  // \ Used for controlling front drive motor movement
 #define frontMotor1 32  // /
@@ -58,7 +61,8 @@ int lightSwitchTime = 0;
 int adjustedSteeringValue = 90;
 int hitchServoValue = 160;
 int32_t hitchServoTarget = 65;
-int steeringTrim = 0;
+int8_t steeringTrim = 0;
+unsigned long nvsUpdateTime = 0;
 int lightMode = 0;
 bool lightsOn = false;
 bool auxLightsOn = false;
@@ -71,6 +75,84 @@ bool trailerAuxMtr1Reverse = false;
 bool trailerAuxMtr2Forward = false;
 bool trailerAuxMtr2Reverse = false;
 bool hitchUp = true;
+
+
+/**
+ * Initialize non-volatile storage.
+ */
+void initNvs() {
+  nvs_flash_init();
+  nvs_open("storage", NVS_READWRITE, &nvsHandle);
+}
+
+/**
+ * Shutdown and cleanup non-volatile storage.
+ */
+void closeNvs() {
+  nvs_close(nvsHandle);
+  nvs_flash_deinit();
+}
+
+/**
+ * Commit updates to values to non-volatile storage.
+ */
+void commitNvs() {
+  nvs_commit(nvsHandle);
+}
+
+/**
+ * Set a value in non-volatile storage. Only updates the in-memory value,
+ * doesn't write it to storage.
+ * @param key The key of the stored value.
+ * @param value The value to store.
+ */
+void setI8(String key, int8_t value) {
+  nvsUpdateTime = millis();
+  nvs_set_i8(nvsHandle, (char*)key.c_str(), value);
+}
+
+/**
+ * Set a value in non-volatile storage. Only updates the in-memory value,
+ * doesn't write it to storage.
+ * @param key The key of the stored value.
+ * @param value The value to store.
+ */
+void setI32(String key, int32_t value) {
+  nvsUpdateTime = millis();
+  nvs_set_i32(nvsHandle, (char*)key.c_str(), value);
+}
+
+/**
+ * Get a value from non-volatile storage. If there was an error retreiving
+ * the value or it doesn't exist, return the default value.
+ * @param key The key of the stored value.
+ * @param defaultValue A value to return if there was an error or the value
+ *                     does not exist in non-volatile storage.
+ * @returns The value stored in non-volatile storage or the default value.
+ */
+int8_t getI8(String key, int8_t defaultValue) {
+  int8_t retval;
+  if (nvs_get_i8(nvsHandle, (char*)key.c_str(), &retval) != ESP_OK) {
+    retval = defaultValue;
+  }
+  return retval;
+}
+
+/**
+ * Get a value from non-volatile storage. If there was an error retreiving
+ * the value or it doesn't exist, return the default value.
+ * @param key The key of the stored value.
+ * @param defaultValue A value to return if there was an error or the value
+ *                     does not exist in non-volatile storage.
+ * @returns The value stored in non-volatile storage or the default value.
+ */
+int32_t getI32(String key, int32_t defaultValue) {
+  int32_t retval;
+  if (nvs_get_i32(nvsHandle, (char*)key.c_str(), &retval) != ESP_OK) {
+    retval = defaultValue;
+  }
+  return retval;
+}
 
 void onConnectedController(ControllerPtr ctl) {
   bool foundEmptySlot = false;
@@ -215,6 +297,12 @@ void processGamepad(ControllerPtr ctl) {
     }
     lightSwitchTime = millis();
   }
+
+  //commit non-volatile storage 5 seconds after updates
+  if (nvsUpdateTime && (millis() - nvsUpdateTime) > 5000) {
+    nvsUpdateTime = 0;
+    commitNvs();
+  }
 }
 
 
@@ -255,9 +343,11 @@ void processThrottle(int axisYValue) {
 void processTrimAndHitch(int dpadValue, int start, int select) {
   if (dpadValue == 4 && steeringTrim < 20) {
     steeringTrim = steeringTrim + 1;
+    setI8("trim", steeringTrim);
     delay(50);
   } else if (dpadValue == 8 && steeringTrim > -20) {
     steeringTrim = steeringTrim - 1;
+    setI8("trim", steeringTrim);
     delay(50);
   }
 
@@ -265,6 +355,7 @@ void processTrimAndHitch(int dpadValue, int start, int select) {
   if (start) {
     if (hitchServoTarget < 90) {
       hitchServoTarget = hitchServoTarget + 1;
+      setI32("hitch", hitchServoTarget);
       delay(50);
       hitchServo.write(hitchServoTarget);
       delay(10);
@@ -273,6 +364,7 @@ void processTrimAndHitch(int dpadValue, int start, int select) {
   else if (select) {
     if (hitchServoTarget > 50) {
       hitchServoTarget = hitchServoTarget - 1;
+      setI32("hitch", hitchServoTarget);
       delay(50);
       hitchServo.write(hitchServoTarget);
       delay(10);
@@ -433,6 +525,12 @@ void setup() {
   Serial.printf("BD Addr: %2X:%2X:%2X:%2X:%2X:%2X\n", addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
 #endif
 
+  //initialize storage
+  initNvs();
+  steeringTrim = getI8("trim", 0);
+  adjustedSteeringValue = adjustedSteeringValue - steeringTrim;
+  hitchServoTarget = getI32("hitch", hitchServoTarget);
+
   // Setup the Bluepad32 callbacks
   BP32.setup(&onConnectedController, &onDisconnectedController);
 
@@ -472,7 +570,7 @@ void setup() {
   digitalWrite(LT3, LOW);
 
   frontSteeringServo.attach(frontSteeringServoPin);
-  frontSteeringServo.write(adjustedSteeringValue);
+  frontSteeringServo.write(180 - adjustedSteeringValue);
   hitchServo.attach(hitchServoPin);
   hitchServo.write(hitchServoValue);
 }
