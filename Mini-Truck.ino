@@ -57,6 +57,7 @@ int lightSwitchButtonTime = 0;
 int lightSwitchTime = 0;
 int adjustedSteeringValue = 90;
 int hitchServoValue = 160;
+int32_t hitchServoTarget = 65;
 int steeringTrim = 0;
 int lightMode = 0;
 bool lightsOn = false;
@@ -145,7 +146,7 @@ void processGamepad(ControllerPtr ctl) {
   //Steering
   processSteering(ctl->axisRX());
   //Steering trim and hitch
-  processTrimAndHitch(ctl->dpad());
+  processTrimAndHitch(ctl->dpad(), ctl->miscStart(), ctl->miscSelect());
   //Lights
   processLights(ctl->thumbR());
   processSmokeGen(ctl->thumbL());
@@ -250,7 +251,7 @@ void processThrottle(int axisYValue) {
   moveMotor(auxAttach2, auxAttach3, smokeThrottle);
 }
 
-void processTrimAndHitch(int dpadValue) {
+void processTrimAndHitch(int dpadValue, int start, int select) {
   if (dpadValue == 4 && steeringTrim < 20) {
     steeringTrim = steeringTrim + 1;
     delay(50);
@@ -258,11 +259,30 @@ void processTrimAndHitch(int dpadValue) {
     steeringTrim = steeringTrim - 1;
     delay(50);
   }
+
+  //fine tuning of the hitch offset
+  if (start) {
+    if (hitchServoTarget < 90) {
+      hitchServoTarget = hitchServoTarget + 1;
+      delay(50);
+      hitchServo.write(hitchServoTarget);
+      delay(10);
+    }
+  }
+  else if (select) {
+    if (hitchServoTarget > 50) {
+      hitchServoTarget = hitchServoTarget - 1;
+      delay(50);
+      hitchServo.write(hitchServoTarget);
+      delay(10);
+    }
+  }
+
   if (dpadValue == 1) {
     hitchServo.write(hitchServoValue);
     delay(10);
   } else if (dpadValue == 2) {
-    hitchServo.write(65);
+    hitchServo.write(hitchServoTarget);
     delay(10);
   }
 }
