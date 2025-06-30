@@ -5,6 +5,8 @@
 
 ControllerPtr myControllers[BP32_MAX_GAMEPADS];
 
+//#define _SERIAL_DEBUG 0
+
 /*What the different Serial commands for the trailer esp32 daughter board do
 1-Trailer Legs Up
 2-Trailer Legs Down
@@ -73,20 +75,26 @@ void onConnectedController(ControllerPtr ctl) {
   bool foundEmptySlot = false;
   for (int i = 0; i < BP32_MAX_GAMEPADS; i++) {
     if (myControllers[i] == nullptr) {
+#ifdef _SERIAL_DEBUG
       Serial.printf("CALLBACK: Controller is connected, index=%d\n", i);
+#endif
       // Additionally, you can get certain gamepad properties like:
       // Model, VID, PID, BTAddr, flags, etc.
       ControllerProperties properties = ctl->getProperties();
+#ifdef _SERIAL_DEBUG
       Serial.printf("Controller model: %s, VID=0x%04x, PID=0x%04x\n", ctl->getModelName().c_str(), properties.vendor_id,
                     properties.product_id);
+#endif
       myControllers[i] = ctl;
       foundEmptySlot = true;
       break;
     }
   }
+#ifdef _SERIAL_DEBUG
   if (!foundEmptySlot) {
     Serial.println("CALLBACK: Controller connected, but could not found empty slot");
   }
+#endif
 }
 
 
@@ -115,16 +123,20 @@ void onDisconnectedController(ControllerPtr ctl) {
 
   for (int i = 0; i < BP32_MAX_GAMEPADS; i++) {
     if (myControllers[i] == ctl) {
+#ifdef _SERIAL_DEBUG
       Serial.printf("CALLBACK: Controller disconnected from index=%d\n", i);
+#endif
       myControllers[i] = nullptr;
       foundController = true;
       break;
     }
   }
 
+#ifdef _SERIAL_DEBUG
   if (!foundController) {
     Serial.println("CALLBACK: Controller disconnected, but not found in myControllers");
   }
+#endif
 }
 
 void processGamepad(ControllerPtr ctl) {
@@ -259,8 +271,10 @@ void processSteering(int axisRXValue) {
   adjustedSteeringValue = (90 - (axisRXValue / 9)) - steeringTrim;
   frontSteeringServo.write(180 - adjustedSteeringValue);
 
+#ifdef _SERIAL_DEBUG
   Serial.print("Steering Value:");
   Serial.println(adjustedSteeringValue);
+#endif
 }
 
 void processLights(bool buttonValue) {
@@ -379,9 +393,12 @@ void processControllers() {
     if (myController && myController->isConnected() && myController->hasData()) {
       if (myController->isGamepad()) {
         processGamepad(myController);
-      } else {
+      }
+#ifdef _SERIAL_DEBUG
+      else {
         Serial.println("Unsupported controller");
       }
+#endif
     }
   }
 }
@@ -389,10 +406,11 @@ void processControllers() {
 // Arduino setup function. Runs in CPU 1
 void setup() {
   Serial.begin(115200);
-  //   put your setup code here, to run once:
+#ifdef _SERIAL_DEBUG
   Serial.printf("Firmware: %s\n", BP32.firmwareVersion());
   const uint8_t *addr = BP32.localBdAddress();
   Serial.printf("BD Addr: %2X:%2X:%2X:%2X:%2X:%2X\n", addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
+#endif
 
   // Setup the Bluepad32 callbacks
   BP32.setup(&onConnectedController, &onDisconnectedController);
